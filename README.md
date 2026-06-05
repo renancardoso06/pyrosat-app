@@ -1,17 +1,25 @@
-# firewatch_app
+# 🔥 PyroSat
 
-A new Flutter project.
+Monitoramento de Queimadas via Satélite
 
-## Getting Started
+## Sobre
+Aplicativo mobile desenvolvido em Flutter para monitoramento de focos de incêndio em tempo real no Brasil, utilizando dados do sistema NASA FIRMS (satélites MODIS e VIIRS).
 
-This project is a starting point for a Flutter application.
+## Desenvolvido por
+- Renan Cardoso da Costa — RM557918
+- Victor Vieira Borges — RM557922
 
-A few resources to get you started if this is your first Flutter project:
+## Global Solution FIAP 2026 — Space Connect
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Tecnologias
+- Flutter 3.44
+- Dart
+- flutter_map
+- OpenStreetMap
+- NASA FIRMS API
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Como executar
+1. Instale o Flutter SDK
+2. Clone o repositório
+3. Execute `flutter pub get`
+4. Execute `flutter run`
