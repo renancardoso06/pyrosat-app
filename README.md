@@ -1,9 +1,6 @@
-# 🔥 PyroSat
+# VigIA
 
-Monitoramento de Queimadas via Satélite
-
-## Sobre
-Aplicativo mobile desenvolvido em Flutter para monitoramento de focos de incêndio em tempo real no Brasil, utilizando dados do sistema NASA FIRMS (satélites MODIS e VIIRS).
+Monitoramento de queimadas em tempo real via satélite, com previsão de risco por bioma usando IA.
 
 ## Desenvolvido por
 - Renan Cardoso da Costa — RM557918
@@ -12,14 +9,13 @@ Aplicativo mobile desenvolvido em Flutter para monitoramento de focos de incênd
 ## Global Solution FIAP 2026 — Space Connect
 
 ## Tecnologias
-- Flutter 3.44
-- Dart
-- flutter_map
-- OpenStreetMap
-- NASA FIRMS API
+- Flutter / Dart
+- flutter_map + OpenStreetMap
+- NASA FIRMS API (MODIS/VIIRS)
 
-## Como executar
-1. Instale o Flutter SDK
-2. Clone o repositório
-3. Execute `flutter pub get`
-4. Execute `flutter run`
+## Como rodar
+```bash
+flutter pub get
+flutter run -d chrome        # web
+flutter run -d emulator-5554 # android
+```

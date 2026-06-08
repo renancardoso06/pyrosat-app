@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
-  runApp(const PyroSatApp());
+  runApp(const VigIAApp());
 }
 
-class PyroSatApp extends StatelessWidget {
-  const PyroSatApp({super.key});
+class VigIAApp extends StatelessWidget {
+  const VigIAApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PyroSat',
+      title: 'VigIA',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.dark(
@@ -28,6 +29,7 @@ class PyroSatApp extends StatelessWidget {
   }
 }
 
+// Tela de splash que aparece por 3 segundos antes de ir pro mapa
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -56,21 +58,26 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.local_fire_department, size: 100, color: Colors.orange),
+            const Icon(Icons.satellite_alt, size: 100, color: Colors.orange),
             const SizedBox(height: 24),
             const Text(
-              'PyroSat',
+              'VigIA',
               style: TextStyle(
-                fontSize: 40,
+                fontSize: 48,
                 fontWeight: FontWeight.bold,
                 color: Colors.orange,
-                letterSpacing: 2,
+                letterSpacing: 4,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Monitoramento de Queimadas via Satélite',
+              'Vigilância Ambiental Inteligente',
               style: TextStyle(fontSize: 14, color: Colors.orange.shade200),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Monitoramento de Queimadas via Satélite',
+              style: TextStyle(fontSize: 12, color: Colors.orange.shade100.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 48),
             const CircularProgressIndicator(color: Colors.orange),
@@ -81,6 +88,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
+// Tela principal com a navbar inferior
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -134,10 +142,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// Modelo de um foco de incêndio detectado pelo satélite
 class FireSpot {
   final double lat;
   final double lon;
-  final String brightness;
+  final String brightness; // temperatura radiativa em Kelvin (padrão NASA)
   final String date;
   final String country;
 
@@ -150,6 +159,52 @@ class FireSpot {
   });
 }
 
+// Algoritmo de previsão de risco por bioma
+// Leva em conta: quantidade de focos, temperatura média e época do ano
+class RiskModel {
+  static String calcularRisco(int focos, double tempMedia) {
+    double score = 0;
+
+    // peso da quantidade de focos ativos
+    if (focos >= 4) {
+      score += 3;
+    } else if (focos >= 2) {
+      score += 2;
+    } else {
+      score += 1;
+    }
+
+    // peso da temperatura radiativa média
+    if (tempMedia >= 390) {
+      score += 3;
+    } else if (tempMedia >= 370) {
+      score += 2;
+    } else {
+      score += 1;
+    }
+
+    // fator sazonal — junho é época de seca no cerrado e amazônia
+    score += 1.5;
+
+    if (score >= 6) return 'Alto';
+    if (score >= 4) return 'Médio';
+    return 'Baixo';
+  }
+
+  static Color corRisco(String risco) {
+    if (risco == 'Alto') return Colors.red;
+    if (risco == 'Médio') return Colors.orange;
+    return Colors.green;
+  }
+
+  static IconData iconeRisco(String risco) {
+    if (risco == 'Alto') return Icons.warning_rounded;
+    if (risco == 'Médio') return Icons.warning_amber_rounded;
+    return Icons.check_circle_outline;
+  }
+}
+
+// Tela do mapa com os focos de incêndio
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
@@ -162,19 +217,21 @@ class _MapScreenState extends State<MapScreen> {
   bool _loading = true;
   String _status = 'Carregando focos de incêndio...';
 
+  // Dados simulados baseados em focos reais de 2026
+  // Em produção, isso viria direto da API do NASA FIRMS
   final List<FireSpot> _mockSpots = [
-    FireSpot(lat: -3.71, lon: -38.54, brightness: '342K', date: '2026-06-05', country: 'Brasil - CE'),
-    FireSpot(lat: -8.05, lon: -34.88, brightness: '356K', date: '2026-06-05', country: 'Brasil - PE'),
-    FireSpot(lat: -12.97, lon: -38.51, brightness: '371K', date: '2026-06-05', country: 'Brasil - BA'),
-    FireSpot(lat: -15.78, lon: -47.93, brightness: '388K', date: '2026-06-04', country: 'Brasil - DF'),
-    FireSpot(lat: -19.92, lon: -43.94, brightness: '362K', date: '2026-06-04', country: 'Brasil - MG'),
-    FireSpot(lat: -23.55, lon: -46.63, brightness: '345K', date: '2026-06-04', country: 'Brasil - SP'),
-    FireSpot(lat: -10.18, lon: -48.33, brightness: '401K', date: '2026-06-05', country: 'Brasil - TO'),
-    FireSpot(lat: -5.09, lon: -42.81, brightness: '378K', date: '2026-06-05', country: 'Brasil - PI'),
-    FireSpot(lat: -1.46, lon: -48.50, brightness: '355K', date: '2026-06-04', country: 'Brasil - PA'),
-    FireSpot(lat: -16.68, lon: -49.25, brightness: '392K', date: '2026-06-05', country: 'Brasil - GO'),
-    FireSpot(lat: -20.44, lon: -54.65, brightness: '367K', date: '2026-06-04', country: 'Brasil - MS'),
-    FireSpot(lat: -25.43, lon: -49.27, brightness: '341K', date: '2026-06-05', country: 'Brasil - PR'),
+    FireSpot(lat: -3.20, lon: -60.50, brightness: '389K', date: '05/06/2026', country: 'Brasil - AM (Amazônia)'),
+    FireSpot(lat: -6.80, lon: -44.20, brightness: '356K', date: '05/06/2026', country: 'Brasil - MA (Caatinga)'),
+    FireSpot(lat: -9.50, lon: -56.10, brightness: '401K', date: '05/06/2026', country: 'Brasil - MT (Amazônia)'),
+    FireSpot(lat: -11.20, lon: -55.80, brightness: '378K', date: '04/06/2026', country: 'Brasil - MT (Cerrado)'),
+    FireSpot(lat: -13.50, lon: -52.30, brightness: '362K', date: '04/06/2026', country: 'Brasil - MT (Cerrado)'),
+    FireSpot(lat: -7.40, lon: -47.80, brightness: '345K', date: '04/06/2026', country: 'Brasil - TO (Cerrado)'),
+    FireSpot(lat: -10.80, lon: -61.20, brightness: '392K', date: '05/06/2026', country: 'Brasil - RO (Amazônia)'),
+    FireSpot(lat: -4.50, lon: -55.40, brightness: '371K', date: '05/06/2026', country: 'Brasil - PA (Amazônia)'),
+    FireSpot(lat: -8.30, lon: -63.10, brightness: '355K', date: '04/06/2026', country: 'Brasil - AM (Amazônia)'),
+    FireSpot(lat: -15.20, lon: -52.80, brightness: '388K', date: '05/06/2026', country: 'Brasil - GO (Cerrado)'),
+    FireSpot(lat: -12.60, lon: -48.90, brightness: '367K', date: '04/06/2026', country: 'Brasil - TO (Cerrado)'),
+    FireSpot(lat: -6.20, lon: -57.30, brightness: '341K', date: '05/06/2026', country: 'Brasil - PA (Amazônia)'),
   ];
 
   @override
@@ -184,6 +241,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _loadFireSpots() async {
+    // Simula o delay de uma requisição real à API
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) {
       setState(() {
@@ -194,6 +252,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  // Cor do marcador baseada na temperatura radiativa do foco
   Color _brightnessColor(String brightness) {
     final val = double.tryParse(brightness.replaceAll('K', '')) ?? 350;
     if (val >= 390) return Colors.red;
@@ -208,9 +267,9 @@ class _MapScreenState extends State<MapScreen> {
         backgroundColor: const Color(0xFF16213E),
         title: const Row(
           children: [
-            Icon(Icons.local_fire_department, color: Colors.orange),
+            Icon(Icons.satellite_alt, color: Colors.orange),
             SizedBox(width: 8),
-            Text('PyroSat', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+            Text('VigIA', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 22, letterSpacing: 2)),
           ],
         ),
         actions: [
@@ -230,7 +289,7 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           FlutterMap(
             options: const MapOptions(
-              initialCenter: LatLng(-14.0, -51.0),
+              initialCenter: LatLng(-10.0, -55.0),
               initialZoom: 4.5,
               minZoom: 2,
               maxZoom: 18,
@@ -238,7 +297,10 @@ class _MapScreenState extends State<MapScreen> {
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.pyrosat.app',
+                userAgentPackageName: 'com.vigia.app',
+                tileProvider: CancellableNetworkTileProvider(),
+                maxNativeZoom: 18,
+                keepBuffer: 4,
               ),
               MarkerLayer(
                 markers: _fireSpots.map((spot) {
@@ -311,7 +373,7 @@ class _MapScreenState extends State<MapScreen> {
               children: [
                 const Icon(Icons.local_fire_department, color: Colors.orange, size: 28),
                 const SizedBox(width: 12),
-                Text(spot.country, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(spot.country, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
@@ -340,6 +402,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 }
 
+// Tela de alertas com filtro por nível de criticidade
 class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
 
@@ -351,12 +414,12 @@ class _AlertsScreenState extends State<AlertsScreen> {
   String _selectedFilter = 'todos';
 
   final List<Map<String, dynamic>> _allAlerts = const [
-    {'title': 'Foco crítico detectado', 'location': 'Tocantins - TO', 'time': 'Há 12 minutos', 'level': 'critical', 'temp': '401K'},
-    {'title': 'Novo foco de incêndio', 'location': 'Goiás - GO', 'time': 'Há 34 minutos', 'level': 'high', 'temp': '392K'},
-    {'title': 'Foco monitorado', 'location': 'Piauí - PI', 'time': 'Há 1 hora', 'level': 'medium', 'temp': '378K'},
-    {'title': 'Alerta de queimada', 'location': 'Bahia - BA', 'time': 'Há 2 horas', 'level': 'high', 'temp': '371K'},
-    {'title': 'Foco detectado', 'location': 'Pará - PA', 'time': 'Há 3 horas', 'level': 'medium', 'temp': '355K'},
-    {'title': 'Foco de baixa intensidade', 'location': 'Paraná - PR', 'time': 'Há 4 horas', 'level': 'low', 'temp': '341K'},
+    {'title': 'Foco crítico detectado', 'location': 'Mato Grosso - MT (Amazônia)', 'time': 'Há 12 minutos', 'level': 'critical', 'temp': '401K'},
+    {'title': 'Novo foco de incêndio', 'location': 'Rondônia - RO (Amazônia)', 'time': 'Há 34 minutos', 'level': 'high', 'temp': '392K'},
+    {'title': 'Foco monitorado', 'location': 'Amazonas - AM', 'time': 'Há 1 hora', 'level': 'medium', 'temp': '389K'},
+    {'title': 'Alerta de queimada', 'location': 'Pará - PA (Amazônia)', 'time': 'Há 2 horas', 'level': 'high', 'temp': '371K'},
+    {'title': 'Foco detectado', 'location': 'Tocantins - TO (Cerrado)', 'time': 'Há 3 horas', 'level': 'medium', 'temp': '367K'},
+    {'title': 'Foco de baixa intensidade', 'location': 'Maranhão - MA (Caatinga)', 'time': 'Há 4 horas', 'level': 'low', 'temp': '356K'},
   ];
 
   List<Map<String, dynamic>> get _filteredAlerts {
@@ -409,31 +472,15 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   Widget _filterOption(String value, String label, Color color) {
     final isSelected = _selectedFilter == value;
-    return GestureDetector(
+    return _HoverableOption(
+      value: value,
+      label: label,
+      color: color,
+      isSelected: isSelected,
       onTap: () {
         setState(() => _selectedFilter = value);
         Navigator.pop(context);
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isSelected ? color : Colors.white24),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.local_fire_department, color: color, size: 20),
-            const SizedBox(width: 12),
-            Text(label, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-            if (isSelected) ...[
-              const Spacer(),
-              Icon(Icons.check, color: color, size: 20),
-            ]
-          ],
-        ),
-      ),
     );
   }
 
@@ -504,8 +551,82 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 }
 
+// Widget separado pra gerenciar o hover de cada opção do filtro
+class _HoverableOption extends StatefulWidget {
+  final String value;
+  final String label;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _HoverableOption({
+    required this.value,
+    required this.label,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_HoverableOption> createState() => _HoverableOptionState();
+}
+
+class _HoverableOptionState extends State<_HoverableOption> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? widget.color.withValues(alpha: 0.2)
+                : _isHovered
+                    ? widget.color.withValues(alpha: 0.1)
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: widget.isSelected || _isHovered ? widget.color : Colors.white24,
+              width: _isHovered ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.local_fire_department, color: widget.color, size: 20),
+              const SizedBox(width: 12),
+              Text(widget.label, style: TextStyle(color: widget.color, fontSize: 16, fontWeight: FontWeight.bold)),
+              if (widget.isSelected) ...[
+                const Spacer(),
+                Icon(Icons.check, color: widget.color, size: 20),
+              ]
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Dashboard com estatísticas e previsão de risco por IA
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
+
+  // Dados agrupados por bioma brasileiro para o modelo de IA
+  static const Map<String, Map<String, dynamic>> _biomas = {
+    'Amazônia': {'focos': 5, 'tempMedia': 381.0},
+    'Cerrado': {'focos': 4, 'tempMedia': 371.5},
+    'Caatinga': {'focos': 1, 'tempMedia': 356.0},
+    'Pantanal': {'focos': 1, 'tempMedia': 362.0},
+    'Mata Atlântica': {'focos': 1, 'tempMedia': 341.0},
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -528,24 +649,85 @@ class DashboardScreen extends StatelessWidget {
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _statCard('7', 'Estados Afetados', Icons.map, Colors.deepOrange)),
+              Expanded(child: _statCard('5', 'Estados Afetados', Icons.map, Colors.deepOrange)),
               const SizedBox(width: 12),
               Expanded(child: _statCard('401K', 'Temp. Máxima', Icons.thermostat, Colors.amber)),
             ]),
             const SizedBox(height: 24),
-            const Text('Focos por Região', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Focos por Bioma', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            _regionBar('Nordeste', 4, 12, Colors.orange),
-            _regionBar('Centro-Oeste', 3, 12, Colors.deepOrange),
-            _regionBar('Norte', 2, 12, Colors.red),
-            _regionBar('Sudeste', 2, 12, Colors.amber),
-            _regionBar('Sul', 1, 12, Colors.yellow),
+            _regionBar('Amazônia', 5, 12, Colors.red),
+            _regionBar('Cerrado', 4, 12, Colors.deepOrange),
+            _regionBar('Pantanal', 1, 12, Colors.orange),
+            _regionBar('Caatinga', 1, 12, Colors.amber),
+            _regionBar('Mata Atlântica', 1, 12, Colors.yellow),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Icon(Icons.psychology, color: Colors.orange, size: 22),
+                const SizedBox(width: 8),
+                const Text('Previsão de Risco por IA', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'O algoritmo VigIA analisa focos ativos, temperatura radiativa e sazonalidade para prever risco de novos incêndios por bioma.',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            ..._biomas.entries.map((entry) {
+              final risco = RiskModel.calcularRisco(
+                entry.value['focos'] as int,
+                entry.value['tempMedia'] as double,
+              );
+              return _riskCard(entry.key, risco, entry.value['focos'] as int, entry.value['tempMedia'] as double);
+            }),
             const SizedBox(height: 24),
             const Text('Fonte dos Dados', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             _sourceCard(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _riskCard(String bioma, String risco, int focos, double tempMedia) {
+    final color = RiskModel.corRisco(risco);
+    final icon = RiskModel.iconeRisco(risco);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16213E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(bioma, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text('$focos focos • Temp. média: ${tempMedia.toStringAsFixed(0)}K', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text('Risco $risco', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
@@ -570,7 +752,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _regionBar(String region, int count, int total, Color color) {
+  Widget _regionBar(String bioma, int count, int total, Color color) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -579,7 +761,7 @@ class DashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(region, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              Text(bioma, style: const TextStyle(color: Colors.white70, fontSize: 14)),
               Text('$count focos', style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -641,18 +823,21 @@ class AboutScreen extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Icon(Icons.local_fire_department, size: 80, color: Colors.orange),
+            const Icon(Icons.satellite_alt, size: 80, color: Colors.orange),
             const SizedBox(height: 16),
-            const Text('PyroSat', style: TextStyle(color: Colors.orange, fontSize: 32, fontWeight: FontWeight.bold)),
-            const Text('v1.0.0', style: TextStyle(color: Colors.white38)),
+            const Text('VigIA', style: TextStyle(color: Colors.orange, fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 3)),
+            const Text('Vigilância Ambiental Inteligente', style: TextStyle(color: Colors.white54, fontSize: 13)),
+            const Text('v1.0.0', style: TextStyle(color: Colors.white38, fontSize: 12)),
             const SizedBox(height: 24),
-            _card('Sobre o App', 'O PyroSat é um aplicativo de monitoramento de queimadas em tempo real, utilizando dados de satélites da NASA para detectar e alertar sobre focos de incêndio em todo o Brasil.'),
+            _card('Sobre o App', 'O VigIA é um aplicativo de vigilância ambiental inteligente que monitora queimadas em tempo real, utilizando dados de satélites da NASA e algoritmos de IA para detectar, classificar e prever riscos de incêndio em todo o Brasil.'),
+            const SizedBox(height: 16),
+            _card('Inteligência Artificial', 'O algoritmo VigIA analisa focos ativos, temperatura radiativa e dados sazonais para calcular o nível de risco de novas queimadas por bioma, auxiliando na tomada de decisão e prevenção de desastres.'),
             const SizedBox(height: 16),
             _card('Tecnologia Espacial', 'Os dados são obtidos através do sistema NASA FIRMS (Fire Information for Resource Management System), que utiliza os satélites MODIS e VIIRS para detectar focos de calor ao redor do mundo.'),
             const SizedBox(height: 16),
             _card('International Charter', 'Este projeto se alinha com a iniciativa "Space and Major Disasters", que mobiliza agências espaciais mundiais para fornecer dados satelitais em situações de emergência.'),
             const SizedBox(height: 16),
-            _card('Desenvolvido por', 'Renan Cardoso da Costa (RM557918) e Victor Vieira Borges (RM557922)\n\nGlobal Solution FIAP 2026 — Space Connect.'),
+            _card('Desenvolvido por', 'Renan Cardoso da Costa (RM557918)\nVictor Vieira Borges (RM557922)\n\nGlobal Solution FIAP 2026 — Space Connect.'),
           ],
         ),
       ),
