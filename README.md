@@ -11,6 +11,7 @@ Monitoramento de queimadas em tempo real via satélite, com previsão de risco p
 ## Tecnologias
 - Flutter / Dart
 - flutter_map + OpenStreetMap
+- flutter_map_cancellable_tile_provider
 - NASA FIRMS API (MODIS/VIIRS)
 
 ## Como rodar
